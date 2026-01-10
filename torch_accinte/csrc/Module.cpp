@@ -8,17 +8,6 @@
 
 #include <runtime/AccInteFunctions.h>
 
-PyObject* _setDevice(PyObject* self, PyObject* arg) {
-  HANDLE_TH_ERRORS
-  TORCH_CHECK(THPUtils_checkLong(arg), "invalid argument to setDevice");
-  auto device = THPUtils_unpackDeviceIndex(arg);
-  torch::utils::device_lazy_init(at::kPrivateUse1);
-  c10::accinte::set_device(device);
-
-  Py_RETURN_NONE;
-  END_HANDLE_TH_ERRORS
-}
-
 static PyObject* _initExtension(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
 
@@ -35,6 +24,7 @@ static PyObject* _isInBadFork(PyObject* self, PyObject* noargs) {
   END_HANDLE_TH_ERRORS
 }
 
+// LITERALINCLUDE START: ACCINTE GET DEFAULT GENERATOR
 static PyObject* _getDefaultGenerator(PyObject* self, PyObject* arg) {
   HANDLE_TH_ERRORS
   TORCH_CHECK(
@@ -50,14 +40,22 @@ static PyObject* _getDefaultGenerator(PyObject* self, PyObject* arg) {
 
   END_HANDLE_TH_ERRORS
 }
+// LITERALINCLUDE END: ACCINTE GET DEFAULT GENERATOR
 
-PyObject* _getDevice(PyObject* self, PyObject* noargs) {
+// LITERALINCLUDE START: MODULE SET DEVICE HELPER
+
+PyObject* _setDevice(PyObject* self, PyObject* arg) {
   HANDLE_TH_ERRORS
+  TORCH_CHECK(THPUtils_checkLong(arg), "invalid argument to setDevice");
+  auto device = THPUtils_unpackDeviceIndex(arg);
   torch::utils::device_lazy_init(at::kPrivateUse1);
-  auto device = static_cast<int32_t>(c10::accinte::current_device());
-  return THPUtils_packInt32(device);
+  c10::accinte::set_device(device);
+
+  Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
 }
+
+// LITERALINCLUDE END: MODULE SET DEVICE HELPER
 
 PyObject* _exchangeDevice(PyObject* self, PyObject* arg) {
   HANDLE_TH_ERRORS
@@ -74,6 +72,14 @@ PyObject* _exchangeDevice(PyObject* self, PyObject* arg) {
   END_HANDLE_TH_ERRORS
 }
 
+PyObject* _getDevice(PyObject* self, PyObject* noargs) {
+  HANDLE_TH_ERRORS
+  torch::utils::device_lazy_init(at::kPrivateUse1);
+  auto device = static_cast<int32_t>(c10::accinte::current_device());
+  return THPUtils_packInt32(device);
+  END_HANDLE_TH_ERRORS
+}
+
 PyObject* _getDeviceCount(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
   torch::utils::register_fork_handler_for_device_init(at::kPrivateUse1);
@@ -81,11 +87,7 @@ PyObject* _getDeviceCount(PyObject* self, PyObject* noargs) {
   END_HANDLE_TH_ERRORS
 }
 
-// device_count -> _getDeviceCount
-// current_device -> _get_device, _exchangeDevice
-// set_device -> _setDevice
-// ExchangeDevice -> _exchangeDevice
-// maybe_exchange_device -> no use
+// LITERALINCLUDE START: ACCINTE MODULE METHODS
 static PyMethodDef methods[] = {
     {"_init", _initExtension, METH_NOARGS, nullptr},
     {"_isInBadFork", _isInBadFork, METH_NOARGS, nullptr},
@@ -95,7 +97,15 @@ static PyMethodDef methods[] = {
     {"_exchangeDevice", _exchangeDevice, METH_O, nullptr},
     {"_get_device_count", _getDeviceCount, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
-
+// LITERALINCLUDE END: ACCINTE MODULE METHODS
+/*
+ * When ASAN is enabled, PyTorch modifies the dlopen flag during import,
+ * causing all global and weak symbols in _C.so and its dependent libraries
+ * to be exposed to the global symbol scope, which in turn causes
+ * subsequent symbols with the same name in other libraries to be intercepted.
+ * Therefore, it cannot be named initModule here, otherwise initModule
+ * in torch/csrc/Module.cpp will be called, resulting in failure.
+ */
 extern "C" ACCINTE_EXPORT PyObject* initAccInteModule(void) {
   static struct PyModuleDef accinte_C_module = {
       PyModuleDef_HEAD_INIT, "torch_accinte._C", nullptr, -1, methods};

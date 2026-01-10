@@ -186,4 +186,8 @@ TORCH_LIBRARY_IMPL(accinte, AutogradPrivateUse1, m) {
   m.impl("custom_autograd_fn_aliasing", &wrapper_custom_autograd_fn_aliasing);
 }
 
+TORCH_LIBRARY_IMPL(accinte, AutogradPrivateUse1, m) {
+  m.impl("custom_abs", torch::CppFunction::makeFallthrough());
+}
+
 } // namespace at::accinte

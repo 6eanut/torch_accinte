@@ -1,9 +1,9 @@
 import torch
 
-import torch_accinte._C
+import torch_accinte._C  # type: ignore[misc]
 
-from . import meta
-from .amp import get_amp_supported_dtype
+from . import meta  # noqa: F401
+from .amp import get_amp_supported_dtype  # noqa: F401
 
 
 _initialized = False
@@ -41,9 +41,15 @@ def device_count() -> int:
 def current_device():
     return torch_accinte._C._get_device()
 
+
+# LITERALINCLUDE START: PYTHON SET DEVICE FUNCTION
 def set_device(device) -> None:
     if device >= 0:
         torch_accinte._C._set_device(device)
+
+
+# LITERALINCLUDE END: PYTHON SET DEVICE FUNCTION
+
 
 def init():
     _lazy_init()
@@ -59,14 +65,14 @@ def _lazy_init():
         return
     if _is_in_bad_fork():
         raise RuntimeError(
-            "Cannot re-initialize accinte in forked subprocess. To use accinte with "
+            "Cannot re-initialize AccInte in forked subprocess. To use AccInte with "
             "multiprocessing, you must use the 'spawn' start method"
         )
     torch_accinte._C._init()
     _initialized = True
 
 
-from .random import *
+from .random import *  # noqa: F403
 
 
 __all__ = [
